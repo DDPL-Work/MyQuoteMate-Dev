@@ -45,7 +45,7 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
 
         setValidatingCode(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE}/api/v1/discounts/validate`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE}/discounts/validate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

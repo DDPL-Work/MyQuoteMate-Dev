@@ -74,7 +74,7 @@ const Pricing = () => {
 
   const fetchActiveDiscount = async () => {
     try {
-      const apiUrl = `${import.meta.env.VITE_API_BASE}/api/v1/discounts/active`;
+      const apiUrl = `${import.meta.env.VITE_API_BASE}/discounts/active`;
       const response = await fetch(apiUrl);
       if (response.ok) {
         const result = await response.json();
@@ -187,7 +187,7 @@ const Pricing = () => {
   const fetchPlans = async () => {
     try {
       setLoading(true);
-      const apiUrl = `${import.meta.env.VITE_API_BASE}/api/v1/pricing`;
+      const apiUrl = `${import.meta.env.VITE_API_BASE}/pricing`;
       const response = await fetch(apiUrl);
       if (!response.ok) throw new Error('Network response was not ok');
       const result = await response.json();

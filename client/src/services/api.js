@@ -1,11 +1,13 @@
 // client/src/services/api.js
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://myquotemate-7u5w.onrender.com';
-const API_VERSION = import.meta.env.VITE_API_VERSION || 'v1';
+// Centralized API configuration
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+export const API_VERSION = import.meta.env.VITE_API_VERSION || 'v1';
+export const apiBaseURL = `${API_BASE}/${API_VERSION}`;
 
 const api = axios.create({
-  baseURL: `${API_BASE}/api/${API_VERSION}`,
+  baseURL: apiBaseURL,
   withCredentials: true,
   timeout: 60000, // 60 second timeout
   headers: {
@@ -22,8 +24,14 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Add request ID for tracking
-    config.headers['X-Request-ID'] = crypto.randomUUID();
+    // Add request ID for tracking (fallback when crypto is unavailable)
+    try {
+      // eslint-disable-next-line no-undef
+      const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      config.headers['X-Request-ID'] = id;
+    } catch (_) {
+      // no-op
+    }
 
     return config;
   },
@@ -36,18 +44,16 @@ api.interceptors.request.use(
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Log successful responses in development
     if (import.meta.env.DEV) {
       console.log(`[API] ${response.config.method?.toUpperCase()} ${response.config.url}:`, response.data);
     }
     return response;
   },
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config || {};
 
-    // Log error in development
     if (import.meta.env.DEV) {
-      console.error(`[API Error] ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}:`, error.response?.data || error.message);
+      console.error(`[API Error] ${originalRequest?.method?.toUpperCase?.() || ''} ${originalRequest?.url || ''}:`, error.response?.data || error.message);
     }
 
     // Handle 401 Unauthorized (token expired)
@@ -55,19 +61,17 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Attempt to refresh token
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE}/api/${API_VERSION}/auth/refresh`, {
-            refreshToken
-          });
-
-          const { accessToken } = response.data.data;
-          localStorage.setItem('auth_token', accessToken);
-
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
+          const response = await api.post('/auth/refresh', { refreshToken });
+          const { accessToken } = response.data.data || {};
+          if (accessToken) {
+            localStorage.setItem('auth_token', accessToken);
+            // Retry original request with new token
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            return api(originalRequest);
+          }
         }
       } catch (refreshError) {
         // Refresh failed, clear tokens and redirect to login
@@ -75,19 +79,16 @@ api.interceptors.response.use(
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('auth_user');
 
-        // Redirect to login page if not already there
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
       }
     }
 
-    // Handle 429 Rate Limiting
     if (error.response?.status === 429) {
       console.warn('Rate limited. Please try again later.');
     }
 
-    // Format error for consistent handling
     const formattedError = {
       message: error.response?.data?.error || error.response?.data?.message || error.message || 'An error occurred',
       status: error.response?.status,

@@ -222,7 +222,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToSignUp }) => {
             {/* Google OAuth Button */}
             <button
               type="button"
-              onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE}/api/${import.meta.env.VITE_API_VERSION}/auth/google`}
+              onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE}/${import.meta.env.VITE_API_VERSION}/auth/google`}
               disabled={loading}
               className="w-full py-3 bg-white border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 flex items-center justify-center gap-3"
             >

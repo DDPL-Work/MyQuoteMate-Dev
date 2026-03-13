@@ -7,10 +7,7 @@ import { toast } from "react-hot-toast";
 export const AuthContext = createContext(null);
 
 
-// Get API base URL
-const API_BASE = import.meta.env.VITE_API_BASE || "https://myquotemate-7u5w.onrender.com";
-const API_VERSION = import.meta.env.VITE_API_VERSION || "v1";
-const API_URL = `${API_BASE}/api/${API_VERSION}`;
+import api, { apiBaseURL } from "../services/api";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -34,18 +31,10 @@ export const AuthProvider = ({ children }) => {
 
           // Validate token by fetching profile
           try {
-            const response = await fetch(`${API_URL}/users/me`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-              }
-            });
-
-            if (response.ok) {
-              const data = await response.json();
+            const { data } = await api.get(`/users/me`);
+            if (data?.data) {
               setUser(data.data);
             } else {
-              // Token invalid, clear storage
               localStorage.removeItem("auth_user");
               localStorage.removeItem("auth_token");
               setUser(null);
@@ -75,15 +64,8 @@ export const AuthProvider = ({ children }) => {
     if (!token) return null;
 
     try {
-      const response = await fetch(`${API_URL}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      const { data } = await api.get(`/users/me`);
+      if (data?.data) {
         setUser(data.data);
         localStorage.setItem("auth_user", JSON.stringify(data.data));
         return data.data;
@@ -103,19 +85,9 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("auth_token");
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/users/me`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(updates)
-      });
+      const { data } = await api.put(`/users/me`, updates);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data?.success) {
         // Update local state
         setUser(prev => ({
           ...prev,
@@ -147,27 +119,12 @@ export const AuthProvider = ({ children }) => {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          email: email.toLowerCase(),
-          password: password
-        })
+      const { data } = await api.post(`/auth/login`, {
+        email: email.toLowerCase(),
+        password: password
       });
 
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (parseError) {
-        data = null;
-      }
-
-      if (!res.ok) {
+      if (!data) {
         throw new Error(loginErrorMessage);
       }
 
@@ -209,19 +166,10 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/auth/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({ phone, code })
-      });
+      const { data } = await api.post(`/auth/verify-otp`, { phone, code });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Verification failed");
+      if (!data?.success) {
+        throw new Error(data?.error || "Verification failed");
       }
 
       const { user: userData, tokens } = data.data;
@@ -274,25 +222,10 @@ export const AuthProvider = ({ children }) => {
         isPhoneVerified: Boolean(userData.isPhoneVerified)
       };
 
-      const res = await fetch(`${API_URL}/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        credentials: 'include',
-        body: JSON.stringify(payload)
-      });
+      const { data } = await api.post(`/auth/register`, payload);
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Handle validation errors
-        if (data.errors) {
-          const validationErrors = Object.values(data.errors).join(', ');
-          throw new Error(validationErrors);
-        }
-        throw new Error(data.error || data.message || "Registration failed");
+      if (!data) {
+        throw new Error("Registration failed");
       }
 
       if (data.requiresOtp) {
@@ -335,18 +268,9 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/auth/send-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({ phone })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to send verification code");
+      const { data } = await api.post(`/auth/send-otp`, { phone });
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to send verification code");
       }
 
       return { success: true };
@@ -365,18 +289,9 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/auth/verify-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({ phone, code })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Verification failed");
+      const { data } = await api.post(`/auth/verify-otp`, { phone, code });
+      if (!data?.success) {
+        throw new Error(data?.error || "Verification failed");
       }
 
       const verifiedUser = data?.data?.user || null;
@@ -415,21 +330,11 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    fetch(`${API_URL}/auth/logout`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    })
-      .then((response) => {
-        if (!response.ok && response.status !== 401) {
-          console.error(`Logout request failed with status ${response.status}`);
-        }
-      })
-      .catch((error) => {
+    api.post(`/auth/logout`).catch((error) => {
+      if (error?.status && error.status !== 401) {
         console.error('Logout request failed:', error);
-      });
+      }
+    });
   };
 
   // ----------------------------------
@@ -469,17 +374,11 @@ export const AuthProvider = ({ children }) => {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await fetch(`${API_URL}/users/me/avatar`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+      const { data } = await api.post(`/users/me/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data?.success) {
         // Update user state
         setUser(prev => ({
           ...prev,
@@ -510,17 +409,9 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("auth_token");
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/users/me/avatar`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      });
+      const { data } = await api.delete(`/users/me/avatar`);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data?.success) {
         // Update user state
         setUser(prev => ({
           ...prev,
@@ -551,19 +442,9 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("auth_token");
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/users/me/password`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(passwordData)
-      });
+      const { data } = await api.put(`/users/me/password`, passwordData);
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data?.success) {
         return true;
       } else {
         throw new Error(data.error || "Failed to change password");
@@ -582,19 +463,9 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem("auth_token");
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/users/me`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ confirmPassword })
-      });
+      const { data } = await api.delete(`/users/me`, { data: { confirmPassword } });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data?.success) {
         // Logout after successful deletion
         logout();
         return true;

@@ -1,0 +1,15 @@
+--- DEBUG LOG ---
+Connecting to DB...
+Connected.
+Latest Job ID: 697b47bf66d76e99495f9211
+Created At: Thu Jan 29 2026 17:12:55 GMT+0530 (India Standard Time)
+Status: completed
+User ID: 697b2f1cc60df64dad139e7f
+User Email: professor@gmail.com
+User Plan: Premium
+User Credits: 1
+Result ID: 697b49d966d76e99495f92e0
+Result Tier: Premium
+Recommendations Count: 0
+No internal debug log found in metadata.
+Done.

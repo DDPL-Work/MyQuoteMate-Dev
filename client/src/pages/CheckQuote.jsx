@@ -554,6 +554,9 @@ const CheckQuote = () => {
       // Manual Verification (Strict Mode)
       // We MUST verify credits exist before proceeding, otherwise backend will reject with "Limit Reached"
       if (paymentIntent?.id) {
+        if (paymentIntent.id === 'free_redemption') {
+          confirmedCredits = paymentIntent.credits || 1;
+        } else {
         try {
           const verifyRes = await paymentApi.verifyPayment(paymentIntent.id);
 
@@ -576,6 +579,7 @@ const CheckQuote = () => {
           toast.error(`Verification failed: ${e.message || 'Could not confirm credits'}. Please refresh/contact support.`);
           setTemporaryTier(null);
           return; // EXIT FUNCTION
+        }
         }
       } else {
         // No payment intent ID?

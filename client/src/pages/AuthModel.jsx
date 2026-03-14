@@ -1,5 +1,5 @@
 // src/pages/AuthModal.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Mail,
@@ -15,11 +15,76 @@ import {
   Loader2,
   Shield,
   ArrowLeft,
-  Key
+  Key,
+  ChevronDown
 } from 'lucide-react';
 import LegalModal from '../components/LegalModal';
 import Terms from './Terms';
 import Privacy from './Privacy';
+
+// Supported countries for OTP (matching ClickSend account setup)
+const COUNTRIES = [
+  { name: 'Australia', code: '+61', iso: 'au' },
+  { name: 'India', code: '+91', iso: 'in' },
+];
+
+// Reusable professional country code picker component
+const CountryPicker = ({ value, onChange, disabled }) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = useRef(null);
+  const selected = COUNTRIES.find(c => c.code === value) || COUNTRIES[0];
+
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(v => !v)}
+        disabled={disabled}
+        className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg hover:border-orange-400 focus:border-orange-500 transition-colors outline-none disabled:cursor-not-allowed"
+        style={{ minWidth: '160px' }}
+      >
+        <img
+          src={`https://flagcdn.com/w40/${selected.iso}.png`}
+          alt={selected.name}
+          className="w-5 h-3.5 object-cover rounded-sm shadow-sm"
+        />
+        <span className="text-sm font-semibold text-gray-800">{selected.name}</span>
+        <span className="text-xs text-gray-400 font-medium">{selected.code}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-[220px] bg-white border border-gray-200 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-[999] overflow-hidden">
+          {COUNTRIES.map(c => (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => { onChange(c.code); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-orange-50 transition-colors border-b border-gray-50 last:border-0 ${value === c.code ? 'bg-orange-50' : ''}`}
+            >
+              <img
+                src={`https://flagcdn.com/w40/${c.iso}.png`}
+                alt={c.name}
+                className="w-6 h-4 object-cover rounded shadow-sm border border-gray-200"
+              />
+              <div className="flex flex-col items-start">
+                <span className="text-sm font-bold text-gray-900 leading-tight">{c.name}</span>
+                <span className="text-xs text-gray-500">{c.code}</span>
+              </div>
+              {value === c.code && <span className="ml-auto text-orange-500 text-sm font-bold">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AuthModal = ({
   isOpen,
@@ -56,6 +121,7 @@ const AuthModal = ({
     lastName: '',
     email: '',
     phone: '',
+    countryCode: '+61',
     isPhoneVerified: false,
     phoneLocked: false,
     password: '',
@@ -68,7 +134,16 @@ const AuthModal = ({
     if (isOpen) {
       setMode(initialMode);
       if (initialData && Object.keys(initialData).length > 0) {
-        setSignupData(prev => ({ ...prev, ...initialData }));
+        let updateData = { ...initialData };
+        if (updateData.phone) {
+          // Look for matching country prefix to divide the prefilled number
+          const matchedCountry = COUNTRIES.find(c => updateData.phone.startsWith(c.code));
+          if (matchedCountry) {
+            updateData.countryCode = matchedCountry.code;
+            updateData.phone = updateData.phone.substring(matchedCountry.code.length);
+          }
+        }
+        setSignupData(prev => ({ ...prev, ...updateData }));
       }
     }
     // We intentionally only run this when isOpen changes to true
@@ -131,6 +206,7 @@ const AuthModal = ({
       lastName: '',
       email: '',
       phone: '',
+      countryCode: '+61',
       isPhoneVerified: false,
       phoneLocked: false,
       password: '',
@@ -349,7 +425,7 @@ const AuthModal = ({
       password: signupData.password,
       firstName: signupData.firstName.trim(),
       lastName: signupData.lastName.trim(),
-      ...(signupData.phone && { phone: signupData.phone.trim() }),
+      ...(signupData.phone && { phone: `${signupData.countryCode}${signupData.phone.trim().replace(/^0+/, '')}` }),
       isPhoneVerified: Boolean(signupData.isPhoneVerified),
       metadata: {
         registrationSource: 'manual',
@@ -496,7 +572,7 @@ const AuthModal = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in"
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl animate-slide-up flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
@@ -539,7 +615,7 @@ const AuthModal = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto custom-scrollbar">
           {/* Global error */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -922,9 +998,7 @@ const SignupForm = ({
     {/* Phone */}
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="block text-sm font-medium text-gray-700">
-          Phone Number
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Phone Number</label>
         {signupData.isPhoneVerified && (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-green-700">
             <CheckCircle2 className="h-3 w-3" />
@@ -932,19 +1006,26 @@ const SignupForm = ({
           </span>
         )}
       </div>
-      <div className="relative">
-        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <div className="flex gap-2">
+        {/* Custom Country Code Picker */}
+        <CountryPicker
+          value={signupData.countryCode}
+          onChange={(code) => handleSignupChange({ target: { name: 'countryCode', value: code } })}
+          disabled={loading || signupData.phoneLocked}
+        />
+        {/* Phone Number Input */}
         <input
           name="phone"
           type="tel"
           value={signupData.phone}
           onChange={handleSignupChange}
           disabled={loading || signupData.phoneLocked}
-          className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.phone
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-            : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-            } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed`}
-          placeholder="+61 412 345 678"
+          className={`flex-1 px-3 py-2.5 rounded-lg border ${
+            fieldErrors.phone
+              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+              : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
+          } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed`}
+          placeholder="Mobile number"
           autoComplete="tel"
         />
       </div>

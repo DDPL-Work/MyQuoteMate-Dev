@@ -15,7 +15,7 @@ class AdminAuthController {
             const { email, password, firstName, lastName, secretCode } = req.body;
 
             // Basic security check: Require a secret code to register as admin
-            const ADMIN_REGISTRATION_SECRET = process.env.ADMIN_REGISTRATION_SECRET || 'DrDesignAdminSecret2026';
+            const ADMIN_REGISTRATION_SECRET = process.env.ADMIN_REGISTRATION_SECRET || 'MyQuoteMate@12345!';
             if (secretCode !== ADMIN_REGISTRATION_SECRET) {
                 return res.status(403).json({
                     success: false,

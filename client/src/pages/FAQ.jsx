@@ -72,7 +72,7 @@ const FAQ = () => {
   const faqs = {
     'getting-started': [
       {
-        question: 'How do I sign up for MyQuoteText?',
+        question: 'How do I sign up for MyQuoteMate?',
         answer: 'Click the "Sign Up" button in the top right corner of our website. Enter your email address and create a password. You can also sign up with your Google account for faster registration. Once verified, you\'ll have access to your free tier immediately.'
       },
       {
@@ -94,7 +94,7 @@ const FAQ = () => {
     ],
     'how-it-works': [
       {
-        question: 'How does MyQuoteText analyze my quotes?',
+        question: 'How does MyQuoteMate analyze my quotes?',
         answer: 'Our AI uses advanced machine learning trained on thousands of Australian tradie quotes. It analyzes your quote against current market rates, identifies unusual charges, flags potential red flags, and provides cost breakdowns. The analysis is completed in real-time and saved to your account.'
       },
       {
@@ -137,7 +137,7 @@ const FAQ = () => {
       },
       {
         question: 'Do you offer team/business plans?',
-        answer: 'We\'re launching team plans soon! Contact sales@myquotetext.com for early access or custom Premium quotes for contractors and property managers.'
+        answer: 'We\'re launching team plans soon! Contact MyQuoteMate for early access or custom Premium quotes for contractors and property managers.'
       },
       {
         question: 'What\'s your refund policy?',
@@ -149,10 +149,10 @@ const FAQ = () => {
       }
     ],
     'account': [
-      {
-        question: 'How do I reset my password?',
-        answer: 'Click "Forgot Password" on the login page. Enter your email address and check for a reset link (takes 1-2 minutes). Click the link, create a new password, and you\'re done. The link expires in 24 hours for security.'
-      },
+      // {
+      //   question: 'How do I reset my password?',
+      //   answer: 'Click "Forgot Password" on the login page. Enter your email address and check for a reset link (takes 1-2 minutes). Click the link, create a new password, and you\'re done. The link expires in 24 hours for security.'
+      // },
       {
         question: 'Can I change my email address?',
         answer: 'Yes! Go to Profile > Account Settings and click "Edit Email". Enter your new email address and verify it. Your old email address will no longer work to login.'
@@ -223,7 +223,7 @@ const FAQ = () => {
       },
       {
         question: 'What should I do if I suspect a security breach?',
-        answer: 'Email security@myquotetext.com immediately with details. Change your password right away. We\'ll investigate and notify you within 24 hours. Your data is protected by our cyber insurance.'
+        answer: 'Email MyQuoteMate immediately with details. Change your password right away. We\'ll investigate and notify you within 24 hours. Your data is protected by our cyber insurance.'
       },
       {
         question: 'Do you comply with Australian privacy laws?',

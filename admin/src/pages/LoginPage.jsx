@@ -126,25 +126,15 @@ const LoginPage = () => {
             )}
           </button>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs font-semibold text-blue-900 uppercase">Demo Credentials</p>
-            <p className="text-sm text-blue-800 mt-2">
-              Email: <span className="font-mono">rohan@gmail.com</span>
-            </p>
-            <p className="text-sm text-blue-800">
-              Password: <span className="font-mono">Roohan00327!</span>
-            </p>
-          </div>
           {/* Register Link */}
-          <div className="mt-6 text-center">
+          {/* <div className="mt-6 text-center">
             <p className="text-gray-600 text-sm">
               Need access?{' '}
               <Link to="/register" className="text-orange-600 font-bold hover:text-orange-700 transition-colors">
                 Sign Up
               </Link>
             </p>
-          </div>
+          </div> */}
         </form>
 
         {/* Footer */}

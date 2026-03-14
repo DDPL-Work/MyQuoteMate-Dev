@@ -53,9 +53,10 @@ class SMSService {
 
             logger.info(`[SMS Service] Attempting production SMS to ${to}...`);
 
-            // For international delivery (like India), alphanumeric Sender IDs are often blocked.
-            // We'll omit the 'from' field to use ClickSend's most reliable Shared Pool delivery.
-            const fromField = to.startsWith('+61') ? this.config.senderId : undefined;
+            // Use ClickSend's Shared Pool for all countries (most reliable delivery).
+            // Alphanumeric Sender IDs like "MyQuoteMate" are rejected by Australian carriers
+            // unless pre-registered. Shared pool works universally for AU and IN.
+            const fromField = undefined;
 
             const payload = {
                 messages: [

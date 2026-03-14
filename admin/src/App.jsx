@@ -38,7 +38,7 @@ function App() {
   return (
     <div className="flex bg-gray-50 min-h-screen w-full overflow-x-hidden">
       {/* Sidebar - Fixed on desktop, mobile overlay on small screens */}
-      {isAuthenticated && !isAuthPage && (
+      {(!isAuthPage && (isAuthenticated || location.pathname === '/discounts')) && (
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       )}
 
@@ -72,11 +72,7 @@ function App() {
               />
               <Route
                 path="/discounts"
-                element={
-                  <ProtectedRoute>
-                    <DiscountsPage />
-                  </ProtectedRoute>
-                }
+                element={<DiscountsPage />}
               />
               <Route
                 path="/suppliers"

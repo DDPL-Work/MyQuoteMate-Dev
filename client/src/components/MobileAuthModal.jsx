@@ -198,7 +198,7 @@ const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verify
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="relative w-full max-w-md bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] overflow-hidden scale-in-center animate-in zoom-in-95 duration-300">
+            <div className="relative w-full max-w-md bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] scale-in-center animate-in zoom-in-95 duration-300">
 
                 {/* Header */}
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">

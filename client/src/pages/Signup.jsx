@@ -1,5 +1,5 @@
 // src/pages/Signup.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Mail,
@@ -11,13 +11,72 @@ import {
   UserPlus,
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from "../hooks/useAuth";
 import Swal from 'sweetalert2';
 import LegalModal from '../components/LegalModal';
 import Terms from './Terms';
 import Privacy from './Privacy';
+
+// Supported countries for OTP
+const COUNTRIES = [
+  { name: 'Aus', code: '+61', iso: 'au' },
+  { name: 'Ind', code: '+91', iso: 'in' },
+];
+
+const CountryPicker = ({ value, onChange, disabled }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selected = COUNTRIES.find(c => c.code === value) || COUNTRIES[0];
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative flex-shrink-0" ref={ref}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen(v => !v)}
+        disabled={disabled}
+        className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg hover:border-orange-400 focus:border-orange-500 transition-colors outline-none disabled:cursor-not-allowed"
+        style={{ minWidth: '160px' }}
+      >
+        <img
+          src={`https://flagcdn.com/w40/${selected.iso}.png`}
+          alt={selected.name}
+          className="w-5 h-3.5 object-cover rounded-sm shadow-sm"
+        />
+        <span className="text-sm font-semibold text-gray-800">{selected.name}</span>
+        <span className="text-xs text-gray-400 font-medium">{selected.code}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-gray-400 ml-auto transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 w-[220px] bg-white border border-gray-200 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.1)] z-[999] overflow-hidden">
+          {COUNTRIES.map(c => (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => { onChange(c.code); setOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-orange-50 transition-colors border-b border-gray-50 last:border-0 ${value === c.code ? 'bg-orange-50' : ''}`}
+            >
+              <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt={c.name} className="w-6 h-4 object-cover rounded shadow-sm border border-gray-200" />
+              <div className="flex flex-col items-start">
+                <span className="text-sm font-bold text-gray-900 leading-tight">{c.name}</span>
+                <span className="text-xs text-gray-500">{c.code}</span>
+              </div>
+              {value === c.code && <span className="ml-auto text-orange-500 font-bold text-sm">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = false }) => {
   const { login, loading, error, clearError } = useAuth();
@@ -27,6 +86,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
     lastName: '',
     email: '',
     phone: '',
+    countryCode: '+61',
     password: '',
     confirmPassword: ''
   });
@@ -47,6 +107,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
         lastName: '',
         email: '',
         phone: '',
+        countryCode: '+61',
         password: '',
         confirmPassword: ''
       });
@@ -56,6 +117,19 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
       setPasswordStrength(0);
       setAcceptedTerms(false);
       setShowForgotPasswordForm(false);
+    } else {
+      // Automatic detection of injected phone numbers to derive country ID
+      let currentPhone = formData.phone;
+      if (currentPhone) {
+        const matchedCountry = COUNTRIES.find(c => currentPhone.startsWith(c.code));
+        if (matchedCountry) {
+          setFormData(prev => ({
+             ...prev, 
+             countryCode: matchedCountry.code,
+             phone: currentPhone.substring(matchedCountry.code.length)
+          }));
+        }
+      }
     }
   }, [isOpen]);
 
@@ -176,7 +250,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
       password: formData.password,
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
-      ...(formData.phone && { phone: formData.phone.trim() }),
+      ...(formData.phone && { phone: `${formData.countryCode}${formData.phone.trim().replace(/^0+/, '')}` }),
       metadata: {
         registrationSource: 'manual',
         ipAddress: '', // Will be set by backend
@@ -225,7 +299,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
       style={{ animation: 'fade-in 0.2s ease-out' }}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
         style={{ animation: 'slide-up 0.25s ease-out' }}
       >
         {/* Close button */}
@@ -257,8 +331,8 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Content Wrapper */}
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
           {/* Global error */}
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -272,12 +346,9 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
           <form onSubmit={handleSubmit} className="space-y-4">
             {!showForgotPasswordForm && (
               <>
-                {/* Name fields */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
@@ -285,23 +356,14 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                         value={formData.firstName}
                         onChange={handleChange}
                         disabled={loading}
-                        className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.firstName
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                          } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                        className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.firstName ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                         placeholder="John"
-                        autoComplete="given-name"
                       />
                     </div>
-                    {fieldErrors.firstName && (
-                      <p className="mt-1 text-xs text-red-600">{fieldErrors.firstName}</p>
-                    )}
+                    {fieldErrors.firstName && <p className="mt-1 text-xs text-red-600">{fieldErrors.firstName}</p>}
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
@@ -309,53 +371,39 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                         value={formData.lastName}
                         onChange={handleChange}
                         disabled={loading}
-                        className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.lastName
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                          } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                        className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.lastName ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                         placeholder="Doe"
-                        autoComplete="family-name"
                       />
                     </div>
-                    {fieldErrors.lastName && (
-                      <p className="mt-1 text-xs text-red-600">{fieldErrors.lastName}</p>
-                    )}
+                    {fieldErrors.lastName && <p className="mt-1 text-xs text-red-600">{fieldErrors.lastName}</p>}
                   </div>
                 </div>
 
-                {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <div className="flex gap-2">
+                    <CountryPicker
+                      value={formData.countryCode}
+                      onChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
+                      disabled={loading}
+                    />
                     <input
                       name="phone"
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
                       disabled={loading}
-                      className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.phone
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                        } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                      placeholder="+1 (555) 123-4567"
-                      autoComplete="tel"
+                      className={`flex-1 px-3 py-2.5 rounded-lg border ${fieldErrors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
+                      placeholder="Mobile number"
                     />
                   </div>
-                  {fieldErrors.phone && (
-                    <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
-                  )}
+                  {fieldErrors.phone && <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>}
                 </div>
               </>
             )}
 
-            {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -364,26 +412,17 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                   value={formData.email}
                   onChange={handleChange}
                   disabled={loading}
-                  className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.email
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                    } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                  className={`w-full pl-10 pr-3 py-2.5 rounded-lg border ${fieldErrors.email ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                   placeholder="you@example.com"
-                  autoComplete="email"
                 />
               </div>
-              {fieldErrors.email && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
-              )}
+              {fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
             </div>
 
             {!showForgotPasswordForm && (
               <>
-                {/* Password */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -392,77 +431,45 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                       value={formData.password}
                       onChange={handleChange}
                       disabled={loading}
-                      className={`w-full pl-10 pr-10 py-2.5 rounded-lg border ${fieldErrors.password
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                        } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                      className={`w-full pl-10 pr-10 py-2.5 rounded-lg border ${fieldErrors.password ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                       placeholder="••••••••"
-                      autoComplete="new-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(p => !p)}
                       disabled={loading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
 
-                  {/* Password strength indicator */}
                   {formData.password && (
                     <div className="mt-2 space-y-2">
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600">Password strength</span>
-                        <span className={`font-medium ${passwordStrength < 25 ? 'text-red-600' :
-                          passwordStrength < 50 ? 'text-orange-600' :
-                            passwordStrength < 75 ? 'text-yellow-600' :
-                              passwordStrength < 90 ? 'text-blue-600' : 'text-green-600'
-                          }`}>
+                        <span className={`font-medium ${passwordStrength < 25 ? 'text-red-600' : passwordStrength < 50 ? 'text-orange-600' : passwordStrength < 75 ? 'text-yellow-600' : passwordStrength < 90 ? 'text-blue-600' : 'text-green-600'}`}>
                           {getStrengthLabel(passwordStrength)}
                         </span>
                       </div>
                       <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${getStrengthColor(passwordStrength)}`}
-                          style={{ width: `${passwordStrength}%` }}
-                        />
+                        <div className={`h-full transition-all duration-300 ${getStrengthColor(passwordStrength)}`} style={{ width: `${passwordStrength}%` }} />
                       </div>
-
-                      {/* Requirements checklist */}
                       <div className="grid grid-cols-2 gap-1 pt-1">
                         {passwordRequirements.map((req, i) => (
                           <div key={i} className="flex items-center gap-1.5">
-                            {req.check ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <div className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0" />
-                            )}
-                            <span className={`text-xs ${req.check ? 'text-green-600' : 'text-gray-500'
-                              }`}>
-                              {req.text}
-                            </span>
+                            {req.check ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <div className="w-3 h-3 rounded-full border border-gray-300" />}
+                            <span className={`text-xs ${req.check ? 'text-green-600' : 'text-gray-500'}`}>{req.text}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {fieldErrors.password && (
-                    <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>
-                  )}
+                  {fieldErrors.password && <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>}
                 </div>
 
-                {/* Confirm Password */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm Password
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -471,33 +478,21 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       disabled={loading}
-                      className={`w-full pl-10 pr-10 py-2.5 rounded-lg border ${fieldErrors.confirmPassword
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:border-orange-500 focus:ring-orange-500'
-                        } focus:ring-2 focus:ring-opacity-20 transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                      className={`w-full pl-10 pr-10 py-2.5 rounded-lg border ${fieldErrors.confirmPassword ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                       placeholder="••••••••"
-                      autoComplete="new-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(p => !p)}
                       disabled={loading}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showConfirmPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {fieldErrors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-600">{fieldErrors.confirmPassword}</p>
-                  )}
+                  {fieldErrors.confirmPassword && <p className="mt-1 text-xs text-red-600">{fieldErrors.confirmPassword}</p>}
                 </div>
 
-                {/* Terms and conditions */}
                 <div className="pt-2">
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
@@ -505,46 +500,33 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                       checked={acceptedTerms}
                       onChange={(e) => setAcceptedTerms(e.target.checked)}
                       disabled={loading}
-                      className="mt-0.5 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 focus:ring-offset-0"
+                      className="mt-0.5 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                     />
                     <span className="text-sm text-gray-600">
-                      I agree to the{' '}
-                      <button type="button" onClick={() => setLegalModalType('terms')} className="text-orange-600 hover:underline">
-                        Terms of Service
-                      </button>{' '}
-                      and{' '}
-                      <button type="button" onClick={() => setLegalModalType('privacy')} className="text-orange-600 hover:underline">
-                        Privacy Policy
-                      </button>
+                      I agree to the <button type="button" onClick={() => setLegalModalType('terms')} className="text-orange-600 hover:underline">Terms of Service</button> and <button type="button" onClick={() => setLegalModalType('privacy')} className="text-orange-600 hover:underline">Privacy Policy</button>
                     </span>
                   </label>
-                  {fieldErrors.terms && (
-                    <p className="mt-1 text-xs text-red-600">{fieldErrors.terms}</p>
-                  )}
+                  {fieldErrors.terms && <p className="mt-1 text-xs text-red-600">{fieldErrors.terms}</p>}
                 </div>
               </>
             )}
 
-            {/* Submit button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+              className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {showForgotPasswordForm ? 'Sending...' : 'Creating Account...'}
                 </span>
-              ) : (
-                showForgotPasswordForm ? 'Send Reset Link' : 'Create Account'
-              )}
+              ) : (showForgotPasswordForm ? 'Send Reset Link' : 'Create Account')}
             </button>
           </form>
 
           {!showForgotPasswordForm && (
             <>
-              {/* Divider */}
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200" />
@@ -554,12 +536,11 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                 </div>
               </div>
 
-              {/* Google OAuth Button */}
               <button
                 type="button"
                 onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE}/${import.meta.env.VITE_API_VERSION}/auth/google`}
                 disabled={loading}
-                className="w-full py-3 bg-white border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 flex items-center justify-center gap-3"
+                className="w-full py-3 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 font-medium rounded-lg flex items-center justify-center gap-3 transition-colors"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -572,44 +553,18 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
             </>
           )}
 
-          {/* Switch between forms */}
           <div className="mt-6 text-center text-sm">
             {showForgotPasswordForm ? (
-              <>
-                Remember your password?{' '}
-                <button
-                  onClick={() => {
-                    setShowForgotPasswordForm(false);
-                    onSwitchToLogin(false);
-                  }}
-                  className="font-medium text-orange-600 hover:text-orange-700 hover:underline"
-                >
-                  Back to login
-                </button>
-              </>
+              <>Remember your password? <button onClick={() => { setShowForgotPasswordForm(false); onSwitchToLogin(false); }} className="font-medium text-orange-600 hover:underline">Back to login</button></>
             ) : (
-              <>
-                Already have an account?{' '}
-                <button
-                  onClick={() => onSwitchToLogin(false)}
-                  className="font-medium text-orange-600 hover:text-orange-700 hover:underline"
-                >
-                  Sign in
-                </button>
-              </>
+              <>Already have an account? <button onClick={() => onSwitchToLogin(false)} className="font-medium text-orange-600 hover:underline">Sign in</button></>
             )}
           </div>
         </div>
       </div>
 
-      {/* Background click handler */}
-      <div
-        className="absolute inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
 
-      {/* Legal Modal overlay */}
       {legalModalType && (
         <LegalModal
           isOpen={true}

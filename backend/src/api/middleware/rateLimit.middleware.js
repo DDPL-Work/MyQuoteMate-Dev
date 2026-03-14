@@ -92,7 +92,7 @@ const apiKeyLimiter = rateLimit({
 const strictLimiter = rateLimit({
   ...baseConfig,
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 3000,
   keyGenerator: (req) => req.ip,
   handler: (req, res) => {
     return res.status(429).json({

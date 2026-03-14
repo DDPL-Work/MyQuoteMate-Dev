@@ -45,7 +45,7 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
 
         setValidatingCode(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE}/discounts/validate`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE}/${import.meta.env.VITE_API_VERSION}/discounts/validate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -83,6 +83,38 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
     const handleInitiatePayment = async () => {
         setIsProcessing(true);
         try {
+            if (parseFloat(finalPrice) <= 0 && appliedDiscount?.code) {
+                const token = localStorage.getItem('accessToken');
+                const response = await fetch(`${import.meta.env.VITE_API_BASE}/discounts/redeem-free`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                        code: appliedDiscount.code,
+                        tier: plan.toLowerCase()
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setStep('success');
+                    setTimeout(() => {
+                        onSuccess?.({
+                            id: 'free_redemption',
+                            credits: result.data.credits
+                        });
+                        onClose();
+                    }, 2500);
+                } else {
+                    toast.error(result.error || 'Failed to redeem free code');
+                }
+                setIsProcessing(false);
+                return;
+            }
+
             const response = await paymentApi.createIntent(null, plan.toLowerCase(), {
                 email: user?.email,
                 name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),

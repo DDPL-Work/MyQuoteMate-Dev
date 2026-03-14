@@ -39,8 +39,6 @@ import {
   Copy,
   Tag
 } from 'lucide-react';
-import PaymentModal from '../components/PaymentModal';
-import DiscountRedemptionModal from '../components/DiscountRedemptionModal';
 import { useAuth } from '../hooks/useAuth';
 import { paymentApi } from '../services/paymentApi';
 import { toast } from 'react-hot-toast'; // Assuming toast is available, or use alert/console
@@ -52,15 +50,10 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(false);
   const [hoveredPlan, setHoveredPlan] = useState(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState(null);
-  const [prefilledDiscountCode, setPrefilledDiscountCode] = useState('');
 
   // Discount States
   const [activeDiscounts, setActiveDiscounts] = useState([]);
   const [currentDiscountIndex, setCurrentDiscountIndex] = useState(0);
-  const [showRedemptionModal, setShowRedemptionModal] = useState(false);
-  const [selectedRedemptionDiscount, setSelectedRedemptionDiscount] = useState(null);
 
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -276,37 +269,16 @@ const Pricing = () => {
 
 
   const handleDiscountClick = (discount) => {
-    setSelectedRedemptionDiscount(discount);
-    setShowRedemptionModal(true);
+    copyToClipboard(discount.code);
+    toast.success(`Code ${discount.code} copied! Go to Check My Quote to use it.`);
   };
 
   const handleRedemptionSelect = (planName, code) => {
-    setShowRedemptionModal(false);
-    // Find the full plan object
-    const plan = plans.find(p => p.name === planName) || { name: planName };
-
-    // Set payment state
-    setSelectedPlanForPayment(plan);
-    setPrefilledDiscountCode(code);
-    setShowPaymentModal(true);
+    // Deprecated with new flow
   };
 
   const handlePaymentSuccess = async () => {
-    try {
-      const tierMap = {
-        'Standard': 'Standard',
-        'Premium': 'Premium'
-      };
-      const tier = tierMap[selectedPlanForPayment?.name] || 'Standard';
-
-      await paymentApi.mockUpgrade(tier);
-      await refreshUser();
-
-      console.log("Upgrade successful!");
-      // Modal closes itself via its own timer calling onClose, but we can double check logic
-    } catch (error) {
-      console.error("Upgrade failed:", error);
-    }
+    // Deprecated with new flow
   };
 
 
@@ -439,21 +411,6 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <DiscountRedemptionModal
-        isOpen={showRedemptionModal}
-        onClose={() => setShowRedemptionModal(false)}
-        discount={selectedRedemptionDiscount}
-        onSelectPlan={handleRedemptionSelect}
-      />
-
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        plan={selectedPlanForPayment?.name}
-        price={selectedPlanForPayment?.price}
-        initialDiscountCode={prefilledDiscountCode}
-        onSuccess={handlePaymentSuccess}
-      />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-white via-orange-50 to-white py-16 sm:py-20 lg:py-24">
@@ -1001,17 +958,7 @@ const Pricing = () => {
         </div>
       </section>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => {
-          setShowPaymentModal(false);
-          setSelectedPlanForPayment(null);
-        }}
-        plan={selectedPlanForPayment?.name}
-        price={selectedPlanForPayment?.price && parseFloat(selectedPlanForPayment.price.replace('$', ''))}
-        onSuccess={handlePaymentSuccess}
-      />
+      {/* Final CTA end */}
     </div>
   );
 };

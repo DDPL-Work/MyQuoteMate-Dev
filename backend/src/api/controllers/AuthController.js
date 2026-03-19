@@ -20,11 +20,40 @@ const normalizePhone = (value = '') => {
 
   if (normalized.startsWith('+')) {
     normalized = `+${normalized.slice(1).replace(/\D/g, '')}`;
-    normalized = normalized.replace(/^(\+\d{1,3})0+/, '$1');
+
+    // Keep country-specific normalization deterministic for currently supported OTP regions.
+    if (normalized.startsWith('+61')) {
+      let local = normalized.slice(3);
+      if (local.startsWith('61')) local = local.slice(2); // Handles accidental "+61" duplication from UI paste.
+      normalized = `+61${local.replace(/^0+/, '')}`;
+      return normalized;
+    }
+
+    if (normalized.startsWith('+91')) {
+      let local = normalized.slice(3);
+      if (local.startsWith('91')) local = local.slice(2); // Handles accidental "+91" duplication from UI paste.
+      normalized = `+91${local.replace(/^0+/, '')}`;
+      return normalized;
+    }
+
     return normalized;
   }
 
   return normalized.replace(/\D/g, '');
+};
+
+const isValidOtpPhone = (phone = '') => {
+  if (phone.startsWith('+61')) {
+    // AU mobile format in E.164: +61 followed by 9 digits (mobile usually starts with 4).
+    return /^\+61\d{9}$/.test(phone);
+  }
+
+  if (phone.startsWith('+91')) {
+    // IN mobile format in E.164: +91 followed by 10 digits.
+    return /^\+91\d{10}$/.test(phone);
+  }
+
+  return false;
 };
 
 class AuthController {
@@ -166,6 +195,13 @@ class AuthController {
 
       // If phone is provided but was not verified upstream, trigger OTP verification
       if (phone && !isPhoneVerified) {
+        if (!isValidOtpPhone(phone)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid phone format. Use +61XXXXXXXXX or +91XXXXXXXXXX.'
+          });
+        }
+
         // Generate 6-digit code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -529,6 +565,13 @@ class AuthController {
         });
       }
 
+      if (!isValidOtpPhone(phone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid phone format. Use +61XXXXXXXXX or +91XXXXXXXXXX.'
+        });
+      }
+
       // Generate 6-digit code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -576,6 +619,13 @@ class AuthController {
         return res.status(400).json({
           success: false,
           error: 'Phone number and code are required'
+        });
+      }
+
+      if (!isValidOtpPhone(phone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid phone format'
         });
       }
 

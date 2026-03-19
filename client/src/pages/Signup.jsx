@@ -153,8 +153,8 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
     // Handle phone number formatting
     let formattedValue = value;
     if (name === 'phone') {
-      // Remove non-numeric characters except +
-      formattedValue = value.replace(/[^\d+]/g, '');
+      // Local number field should only contain digits; country code is selected separately.
+      formattedValue = value.replace(/\D/g, '');
     }
 
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
@@ -184,8 +184,13 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
         errors.lastName = 'Last name must be at least 2 characters';
       }
 
-      if (formData.phone && !/^[\d+\s\-()]{10,}$/.test(formData.phone)) {
-        errors.phone = 'Please enter a valid phone number';
+      if (formData.phone) {
+        const localPhone = formData.phone.trim().replace(/\D/g, '').replace(/^0+/, '');
+        if (formData.countryCode === '+61' && !/^\d{9}$/.test(localPhone)) {
+          errors.phone = 'Enter a valid AU mobile number';
+        } else if (formData.countryCode === '+91' && !/^\d{10}$/.test(localPhone)) {
+          errors.phone = 'Enter a valid IN mobile number';
+        }
       }
     }
 

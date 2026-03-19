@@ -332,7 +332,8 @@ const AuthModal = ({
 
     let formattedValue = value;
     if (name === 'phone') {
-      formattedValue = value.replace(/[^\d+]/g, '');
+      // Local number field should only contain digits; country code is chosen separately.
+      formattedValue = value.replace(/\D/g, '');
     }
 
     setSignupData(prev => ({ ...prev, [name]: formattedValue }));
@@ -378,8 +379,13 @@ const AuthModal = ({
       errors.email = 'Please enter a valid email address';
     }
 
-    if (signupData.phone && !/^[\d+\s\-()]{10,}$/.test(signupData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
+    if (signupData.phone) {
+      const localPhone = signupData.phone.trim().replace(/\D/g, '').replace(/^0+/, '');
+      if (signupData.countryCode === '+61' && !/^\d{9}$/.test(localPhone)) {
+        errors.phone = 'Enter a valid AU mobile number';
+      } else if (signupData.countryCode === '+91' && !/^\d{10}$/.test(localPhone)) {
+        errors.phone = 'Enter a valid IN mobile number';
+      }
     }
 
     if (!signupData.password) {

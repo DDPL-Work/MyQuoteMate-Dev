@@ -79,9 +79,24 @@ class SMSService {
 
             const data = response.data;
             if (data.http_code === 200 && data.response_code === 'SUCCESS') {
-                const msg = data.data.messages[0];
-                logger.info(`[SMS Service] SMS sent successfully. MsgID: ${msg.message_id}, Status: ${msg.status || 'Accepted'}`);
-                return { success: true, data: data.data };
+                const msg = data?.data?.messages?.[0];
+                if (!msg) {
+                    logger.error('[SMS Service] ClickSend response missing message details');
+                    return { success: false, error: 'SMS provider returned an unexpected response' };
+                }
+
+                const status = String(msg.status || '').toUpperCase();
+                const statusCode = String(msg.status_code || '').toUpperCase();
+                const isAccepted = status === 'SUCCESS' || status === 'QUEUED' || statusCode === 'SUCCESS' || statusCode === '200';
+
+                logger.info(`[SMS Service] ClickSend response. MsgID: ${msg.message_id || 'N/A'}, Status: ${msg.status || 'N/A'}, StatusCode: ${msg.status_code || 'N/A'}, StatusText: ${msg.status_text || msg.status_message || 'N/A'}`);
+
+                if (!isAccepted) {
+                    const providerError = msg.status_text || msg.status_message || msg.status || 'SMS delivery rejected by provider';
+                    return { success: false, error: providerError, provider: msg };
+                }
+
+                return { success: true, data: data.data, provider: msg };
             } else {
                 logger.error('[SMS Service] ClickSend API error response:', JSON.stringify(data));
 

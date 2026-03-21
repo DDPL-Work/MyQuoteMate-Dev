@@ -147,6 +147,23 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
     return Math.min(strength, 100);
   };
 
+  const getLocalPhoneLength = (code = '') => {
+    if (code === '+61') return 9;
+    if (code === '+91') return 10;
+    return 15;
+  };
+
+  const normalizeLocalNumber = (value = '', code = '') => {
+    const maxLength = getLocalPhoneLength(code);
+    let digits = String(value || '').replace(/\D/g, '');
+
+    if (String(code).startsWith('+')) {
+      digits = digits.replace(/^0+/, '');
+    }
+
+    return digits.slice(0, maxLength);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -154,7 +171,7 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
     let formattedValue = value;
     if (name === 'phone') {
       // Local number field should only contain digits; country code is selected separately.
-      formattedValue = value.replace(/\D/g, '');
+      formattedValue = normalizeLocalNumber(value, formData.countryCode);
     }
 
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
@@ -389,7 +406,13 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                   <div className="flex gap-2">
                     <CountryPicker
                       value={formData.countryCode}
-                      onChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
+                      onChange={(code) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          countryCode: code,
+                          phone: normalizeLocalNumber(prev.phone, code)
+                        }))
+                      }
                       disabled={loading}
                     />
                     <input
@@ -397,6 +420,9 @@ const SignUpModal = ({ isOpen, onClose, onSwitchToLogin, showForgotPassword = fa
                       type="tel"
                       value={formData.phone}
                       onChange={handleChange}
+                      maxLength={formData.countryCode === '+61' ? 9 : formData.countryCode === '+91' ? 10 : 15}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       disabled={loading}
                       className={`flex-1 px-3 py-2.5 rounded-lg border ${fieldErrors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-orange-500'} focus:ring-2 focus:ring-orange-500 focus:ring-opacity-20 transition-colors disabled:bg-gray-50`}
                       placeholder="Mobile number"

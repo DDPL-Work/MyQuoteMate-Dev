@@ -20,13 +20,27 @@ import { useEffect, useRef } from 'react';
 const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verifyOnly = false }) => {
     const { signup: register, login, sendOtp, verifyOtp } = useAuth();
 
+    const getLocalPhoneLength = (code = '') => {
+        if (code === '+61') return 9;
+        if (code === '+91') return 10;
+        return 15;
+    };
+
+    const normalizeLocalNumber = (value = '', code = '') => {
+        const maxLength = getLocalPhoneLength(code);
+        let digits = String(value || '').replace(/\D/g, '');
+
+        // Local input should not include trunk zeros when country code is selected.
+        if (String(code).startsWith('+')) {
+            digits = digits.replace(/^0+/, '');
+        }
+
+        return digits.slice(0, maxLength);
+    };
+
     const buildFullPhoneNumber = () => {
         const sanitizedCountryCode = String(countryCode || '').replace(/[^\d+]/g, '');
-        let sanitizedLocalNumber = String(mobileNumber || '').replace(/\D/g, '');
-
-        if (sanitizedCountryCode.startsWith('+') && sanitizedLocalNumber.startsWith('0')) {
-            sanitizedLocalNumber = sanitizedLocalNumber.replace(/^0+/, '');
-        }
+        const sanitizedLocalNumber = normalizeLocalNumber(mobileNumber, countryCode);
 
         return `${sanitizedCountryCode}${sanitizedLocalNumber}`;
     };
@@ -76,9 +90,11 @@ const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verify
     const handleSendOtp = async (e) => {
         if (e) e.preventDefault();
 
+        const localNumber = normalizeLocalNumber(mobileNumber, countryCode);
+        const requiredLength = getLocalPhoneLength(countryCode);
         const fullPhone = buildFullPhoneNumber();
-        if (!mobileNumber || mobileNumber.length < 7) {
-            toast.error('Please enter a valid mobile number');
+        if (!localNumber || localNumber.length !== requiredLength) {
+            toast.error(countryCode === '+61' ? 'Please enter a valid 9-digit AU mobile number' : 'Please enter a valid mobile number');
             return;
         }
 
@@ -274,6 +290,7 @@ const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verify
                                                                 onClick={() => {
                                                                     setCountryCode(c.code);
                                                                     setSelectedCountry(c);
+                                                                    setMobileNumber(prev => normalizeLocalNumber(prev, c.code));
                                                                     setShowDropdown(false);
                                                                     setSearchTerm('');
                                                                 }}
@@ -303,7 +320,10 @@ const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verify
                                     <input
                                         type="tel"
                                         value={mobileNumber}
-                                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                                        onChange={(e) => setMobileNumber(normalizeLocalNumber(e.target.value, countryCode))}
+                                        maxLength={getLocalPhoneLength(countryCode)}
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         placeholder="Mobile number"
                                         className="flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
                                         autoFocus

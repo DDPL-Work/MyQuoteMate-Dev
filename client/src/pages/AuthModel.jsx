@@ -296,6 +296,23 @@ const AuthModal = ({
 
   const [otpValue, setOtpValue] = useState(['', '', '', '', '', '']);
 
+  const getLocalPhoneLength = (code = '') => {
+    if (code === '+61') return 9;
+    if (code === '+91') return 10;
+    return 15;
+  };
+
+  const normalizeLocalNumber = (value = '', code = '') => {
+    const maxLength = getLocalPhoneLength(code);
+    let digits = String(value || '').replace(/\D/g, '');
+
+    if (String(code).startsWith('+')) {
+      digits = digits.replace(/^0+/, '');
+    }
+
+    return digits.slice(0, maxLength);
+  };
+
   const handleOtpChange = (element, index) => {
     if (isNaN(element.value)) return;
     const newOtp = [...otpValue];
@@ -333,10 +350,20 @@ const AuthModal = ({
     let formattedValue = value;
     if (name === 'phone') {
       // Local number field should only contain digits; country code is chosen separately.
-      formattedValue = value.replace(/\D/g, '');
+      formattedValue = normalizeLocalNumber(value, signupData.countryCode);
     }
 
-    setSignupData(prev => ({ ...prev, [name]: formattedValue }));
+    setSignupData(prev => {
+      if (name === 'countryCode') {
+        return {
+          ...prev,
+          countryCode: formattedValue,
+          phone: normalizeLocalNumber(prev.phone, formattedValue)
+        };
+      }
+
+      return { ...prev, [name]: formattedValue };
+    });
 
     if (name === 'password') {
       setPasswordStrength(calculatePasswordStrength(formattedValue));
@@ -1025,6 +1052,9 @@ const SignupForm = ({
           type="tel"
           value={signupData.phone}
           onChange={handleSignupChange}
+          maxLength={signupData.countryCode === '+61' ? 9 : signupData.countryCode === '+91' ? 10 : 15}
+          inputMode="numeric"
+          pattern="[0-9]*"
           disabled={loading || signupData.phoneLocked}
           className={`flex-1 px-3 py-2.5 rounded-lg border ${
             fieldErrors.phone

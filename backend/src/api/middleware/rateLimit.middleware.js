@@ -52,7 +52,7 @@ const globalLimiter = rateLimit({
 const authLimiter = rateLimit({
   ...baseConfig,
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 200, // Increased to 200 to accommodate expected traffic and shared IPs safely
   keyGenerator: (req) => req.ip
 });
 
@@ -63,7 +63,7 @@ const authLimiter = rateLimit({
 const uploadLimiter = rateLimit({
   ...baseConfig,
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 200,
   keyGenerator: getUserKey,
   handler: (req, res) => {
     return res.status(429).json({

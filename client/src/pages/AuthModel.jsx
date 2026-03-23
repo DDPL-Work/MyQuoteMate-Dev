@@ -163,6 +163,7 @@ const AuthModal = ({
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showAccountExistsModal, setShowAccountExistsModal] = useState(false);
 
   // Captcha State
   const [captchaToken, setCaptchaToken] = useState(null);
@@ -469,6 +470,14 @@ const AuthModal = ({
 
     const result = await signup(userData);
 
+    if (result && !result.success) {
+      const errMsg = (result.error || '').toLowerCase();
+      if (errMsg.includes('already registered') || errMsg.includes('already exist')) {
+        setShowAccountExistsModal(true);
+        return;
+      }
+    }
+
     if (result && result.requiresOtp) {
       if (!allowOtpStep || signupData.isPhoneVerified) {
         return;
@@ -763,6 +772,40 @@ const AuthModal = ({
             </div>
           )}
         </div>
+
+        {/* Account Exists Modal Overlay */}
+        {showAccountExistsModal && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-white/95 backdrop-blur-sm rounded-2xl animate-fade-in">
+            <div className="bg-white border border-gray-100 p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+              <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
+                <User className="w-8 h-8 text-orange-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Account Already Exists</h3>
+              <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+                An account with these details already exists. Please sign in to continue.
+              </p>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAccountExistsModal(false);
+                    switchToLogin();
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all"
+                >
+                  Go to Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAccountExistsModal(false)}
+                  className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 font-medium rounded-lg transition-all text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legal Modal overlay */}

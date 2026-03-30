@@ -503,6 +503,14 @@ const CheckQuote = () => {
     }, 500);
   };
 
+  const handleChangeVerifiedPhone = () => {
+    setShowMainAuthModal(false);
+    setVerifiedPhone('');
+    setTimeout(() => {
+      setShowMobileAuthModal(true);
+    }, 250);
+  };
+
   // Legacy handler for MobileAuthModal full signup (if used elsewhere, keeping for safety)
   const handleAuthSuccess = async (newUser) => {
     // User just logged in/signed up via Mobile Modal
@@ -1782,6 +1790,7 @@ WARRANTY: 6 years on workmanship`
         onClose={() => setShowMainAuthModal(false)}
         initialMode="signup"
         initialData={{ phone: verifiedPhone, isPhoneVerified: true, phoneLocked: true }}
+        onChangeVerifiedPhone={handleChangeVerifiedPhone}
         onSuccess={handleMainAuthSuccess}
         login={login}
         signup={signup}

@@ -56,6 +56,49 @@ const isValidOtpPhone = (phone = '') => {
   return false;
 };
 
+const buildPhoneLookupCandidates = (phone = '') => {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return [];
+
+  const candidates = new Set([normalized]);
+  const digitsOnly = normalized.replace(/\D/g, '');
+  if (digitsOnly) candidates.add(digitsOnly);
+
+  if (normalized.startsWith('+61')) {
+    const local = normalized.slice(3).replace(/^0+/, '');
+    if (local) {
+      candidates.add(`+61${local}`);
+      candidates.add(`+610${local}`);
+      candidates.add(`0${local}`);
+      candidates.add(local);
+      candidates.add(`61${local}`);
+      candidates.add(`610${local}`);
+    }
+  }
+
+  if (normalized.startsWith('+91')) {
+    const local = normalized.slice(3).replace(/^0+/, '');
+    if (local) {
+      candidates.add(`+91${local}`);
+      candidates.add(`0${local}`);
+      candidates.add(local);
+      candidates.add(`91${local}`);
+    }
+  }
+
+  return Array.from(candidates).filter(Boolean);
+};
+
+const findActiveUserByPhone = async (phone = '') => {
+  const phoneCandidates = buildPhoneLookupCandidates(phone);
+  if (!phoneCandidates.length) return null;
+
+  return User.findOne({
+    accountStatus: { $ne: 'deleted' },
+    phone: { $in: phoneCandidates }
+  });
+};
+
 class AuthController {
   /**
    * Register new user
@@ -82,9 +125,10 @@ class AuthController {
         if (
           isPhoneVerified &&
           phone &&
-          existingUser.phone === phone &&
+          buildPhoneLookupCandidates(phone).includes(existingUser.phone) &&
           existingUser.phoneVerified
         ) {
+          existingUser.security = existingUser.security || {};
           existingUser.security.lastLoginAt = new Date();
           await existingUser.save();
 
@@ -115,20 +159,22 @@ class AuthController {
 
         return res.status(409).json({
           success: false,
+          code: 'EMAIL_ALREADY_REGISTERED',
           error: 'Email already registered'
         });
       }
 
       if (phone) {
-        const existingPhoneUser = await User.findOne({
-          phone,
-          accountStatus: { $ne: 'deleted' }
-        });
+        const existingPhoneUser = await findActiveUserByPhone(phone);
 
         if (existingPhoneUser) {
           return res.status(409).json({
             success: false,
-            error: 'Phone number already registered'
+            code: 'PHONE_ALREADY_REGISTERED',
+            error: 'Phone number already registered',
+            data: {
+              phone: normalizePhone(existingPhoneUser.phone || phone)
+            }
           });
         }
       }
@@ -667,12 +713,17 @@ class AuthController {
       // Success - Delete OTP record
       await OTP.deleteMany({ phone });
 
-      // Check if user exists with this phone
-      const user = await User.findOne({ phone });
+      // Check if user exists with this phone (including legacy phone formats).
+      const user = await findActiveUserByPhone(phone);
       let tokens = null;
 
       if (user) {
+        if (user.phone !== phone) {
+          user.phone = phone;
+        }
         user.phoneVerified = true;
+        user.security = user.security || {};
+        user.security.lastLoginAt = new Date();
         await user.save();
 
         // Generate tokens for login flow
@@ -697,11 +748,16 @@ class AuthController {
         });
       }
 
+      const isExistingUser = Boolean(user);
+
       res.json({
         success: true,
         message: 'Mobile number verified successfully',
-        data: user ? {
-          user: {
+        data: {
+          existingUser: isExistingUser,
+          nextAction: isExistingUser ? 'login' : 'signup',
+          phone,
+          user: user ? {
             id: user._id,
             email: user.email,
             firstName: user.firstName,
@@ -710,9 +766,9 @@ class AuthController {
             phone: user.phone,
             phoneVerified: user.phoneVerified,
             subscription: user.subscription
-          },
+          } : null,
           tokens
-        } : null
+        }
       });
     } catch (error) {
       logger.error('Verify OTP failed:', error);

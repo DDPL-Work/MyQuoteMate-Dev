@@ -98,10 +98,59 @@ const AuthModal = ({
   error,
   clearError = () => { },
   verifyOtpDuringLogin,
-  allowOtpStep = true
+  allowOtpStep = true,
+  onChangeVerifiedPhone
 }) => {
 
+  const getLocalPhoneLength = (code = '') => {
+    if (code === '+61') return 9;
+    if (code === '+91') return 10;
+    return 15;
+  };
 
+  const normalizeLocalNumber = (value = '', code = '') => {
+    const maxLength = getLocalPhoneLength(code);
+    let digits = String(value || '').replace(/\D/g, '');
+
+    if (String(code).startsWith('+')) {
+      digits = digits.replace(/^0+/, '');
+    }
+
+    return digits.slice(0, maxLength);
+  };
+
+  const getBaseSignupData = () => ({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    countryCode: '+61',
+    isPhoneVerified: false,
+    phoneLocked: false,
+    password: '',
+    confirmPassword: ''
+  });
+
+  const resolveSignupDataFromInitial = (data = {}) => {
+    const next = { ...getBaseSignupData(), ...(data || {}) };
+
+    if (next.phone) {
+      const inputPhone = String(next.phone).trim();
+      const matchedCountry = COUNTRIES.find(c => inputPhone.startsWith(c.code));
+
+      if (matchedCountry) {
+        next.countryCode = matchedCountry.code;
+        next.phone = normalizeLocalNumber(
+          inputPhone.slice(matchedCountry.code.length),
+          matchedCountry.code
+        );
+      } else {
+        next.phone = normalizeLocalNumber(inputPhone, next.countryCode);
+      }
+    }
+
+    return next;
+  };
 
   // Mode: 'login', 'signup', or 'forgot-password'
   const [mode, setMode] = useState(initialMode);
@@ -116,41 +165,7 @@ const AuthModal = ({
   });
 
   // Signup form state
-  const [signupData, setSignupData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    countryCode: '+61',
-    isPhoneVerified: false,
-    phoneLocked: false,
-    password: '',
-    confirmPassword: '',
-    ...initialData // Spread initial data to pre-fill fields
-  });
-
-  // Update mode only when modal first opens
-  useEffect(() => {
-    if (isOpen) {
-      setMode(initialMode);
-      if (initialData && Object.keys(initialData).length > 0) {
-        let updateData = { ...initialData };
-        if (updateData.phone) {
-          // Look for matching country prefix to divide the prefilled number
-          const matchedCountry = COUNTRIES.find(c => updateData.phone.startsWith(c.code));
-          if (matchedCountry) {
-            updateData.countryCode = matchedCountry.code;
-            updateData.phone = updateData.phone.substring(matchedCountry.code.length);
-          }
-        }
-        setSignupData(prev => ({ ...prev, ...updateData }));
-      }
-    }
-    // We intentionally only run this when isOpen changes to true
-    // to prevent internal state changes (like switching to signup)
-    // from being reverted by parent re-renders.
-  }, [isOpen]);
-
+  const [signupData, setSignupData] = useState(() => resolveSignupDataFromInitial(initialData));
 
   // Forgot password state
   const [forgotPasswordData, setForgotPasswordData] = useState({
@@ -164,6 +179,7 @@ const AuthModal = ({
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [showAccountExistsModal, setShowAccountExistsModal] = useState(false);
+  const [accountExistsReason, setAccountExistsReason] = useState(null);
 
   // Captcha State
   const [captchaToken, setCaptchaToken] = useState(null);
@@ -171,10 +187,6 @@ const AuthModal = ({
   const [mathAnswer, setMathAnswer] = useState('');
   const [isMathVerified, setIsMathVerified] = useState(false);
   const [useRecaptcha, setUseRecaptcha] = useState(true); // Toggle between systems if needed, or use both.
-
-  useEffect(() => {
-    generateMathCaptcha();
-  }, [isOpen]);
 
   const generateMathCaptcha = () => {
     const n1 = Math.floor(Math.random() * 10) + 1;
@@ -191,28 +203,13 @@ const AuthModal = ({
     }
     return false;
   };
-  useEffect(() => {
-    if (!isOpen) {
-      resetForms();
-    }
-  }, [isOpen]);
 
   // ---------------------------
   // Form Helpers
   // ---------------------------
   const resetForms = () => {
     setLoginData({ email: '', password: '' });
-    setSignupData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      countryCode: '+61',
-      isPhoneVerified: false,
-      phoneLocked: false,
-      password: '',
-      confirmPassword: ''
-    });
+    setSignupData(getBaseSignupData());
     setForgotPasswordData({ email: '' });
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -220,18 +217,46 @@ const AuthModal = ({
     setPasswordStrength(0);
     setAcceptedTerms(false);
     setResetSent(false);
+    setShowAccountExistsModal(false);
+    setAccountExistsReason(null);
     if (typeof clearError === 'function') clearError();
 
   };
 
+  // Update mode and prefilled signup data only when modal opens.
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setSignupData(resolveSignupDataFromInitial(initialData));
+      setFieldErrors({});
+      setShowAccountExistsModal(false);
+      setAccountExistsReason(null);
+      return;
+    }
+
+    resetForms();
+    // We intentionally only run this when isOpen changes
+    // to avoid overriding in-progress form edits.
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      generateMathCaptcha();
+    }
+  }, [isOpen]);
+
   const switchToSignup = () => {
     setMode('signup');
+    setShowAccountExistsModal(false);
+    setAccountExistsReason(null);
     if (typeof clearError === 'function') clearError();
 
   };
 
   const switchToLogin = () => {
     setMode('login');
+    setShowAccountExistsModal(false);
+    setAccountExistsReason(null);
     if (typeof clearError === 'function') clearError();
 
   };
@@ -249,6 +274,9 @@ const AuthModal = ({
     setLoginData(prev => ({ ...prev, [name]: value }));
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (fieldErrors.signup) {
+      setFieldErrors(prev => ({ ...prev, signup: '' }));
     }
   };
 
@@ -296,23 +324,6 @@ const AuthModal = ({
   };
 
   const [otpValue, setOtpValue] = useState(['', '', '', '', '', '']);
-
-  const getLocalPhoneLength = (code = '') => {
-    if (code === '+61') return 9;
-    if (code === '+91') return 10;
-    return 15;
-  };
-
-  const normalizeLocalNumber = (value = '', code = '') => {
-    const maxLength = getLocalPhoneLength(code);
-    let digits = String(value || '').replace(/\D/g, '');
-
-    if (String(code).startsWith('+')) {
-      digits = digits.replace(/^0+/, '');
-    }
-
-    return digits.slice(0, maxLength);
-  };
 
   const handleOtpChange = (element, index) => {
     if (isNaN(element.value)) return;
@@ -471,11 +482,27 @@ const AuthModal = ({
     const result = await signup(userData);
 
     if (result && !result.success) {
-      const errMsg = (result.error || '').toLowerCase();
-      if (errMsg.includes('already registered') || errMsg.includes('already exist')) {
+      const errMsg = String(result.error || '').toLowerCase();
+      const errCode = String(result.code || '').toUpperCase();
+      const isPhoneConflict =
+        errCode === 'PHONE_ALREADY_REGISTERED' ||
+        errMsg.includes('phone number already registered') ||
+        errMsg.includes('phone already registered') ||
+        errMsg.includes('phone already exists');
+      const isEmailConflict =
+        errCode === 'EMAIL_ALREADY_REGISTERED' ||
+        errMsg.includes('email already registered') ||
+        errMsg.includes('email already exists');
+
+      if (isPhoneConflict || isEmailConflict) {
+        setAccountExistsReason(isPhoneConflict ? 'phone' : 'email');
+        setFieldErrors({});
         setShowAccountExistsModal(true);
         return;
       }
+
+      setFieldErrors({ signup: result.error || 'Registration failed. Please try again.' });
+      return;
     }
 
     if (result && result.requiresOtp) {
@@ -782,13 +809,16 @@ const AuthModal = ({
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Account Already Exists</h3>
               <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                An account with these details already exists. Please sign in to continue.
+                {accountExistsReason === 'phone'
+                  ? 'This phone number is already linked to an existing account. You can sign in, or change the number and continue signup.'
+                  : 'An account with these details already exists. Please sign in to continue.'}
               </p>
               <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAccountExistsModal(false);
+                    setAccountExistsReason(null);
                     switchToLogin();
                   }}
                   className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-medium rounded-lg transition-all"
@@ -797,10 +827,26 @@ const AuthModal = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAccountExistsModal(false)}
+                  onClick={() => {
+                    setShowAccountExistsModal(false);
+                    setAccountExistsReason(null);
+
+                    if (typeof onChangeVerifiedPhone === 'function') {
+                      onChangeVerifiedPhone();
+                      return;
+                    }
+
+                    setSignupData(prev => ({
+                      ...prev,
+                      phone: '',
+                      isPhoneVerified: false,
+                      phoneLocked: false
+                    }));
+                    setFieldErrors({});
+                  }}
                   className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 font-medium rounded-lg transition-all text-sm"
                 >
-                  Cancel
+                  Change Number
                 </button>
               </div>
             </div>
@@ -1326,6 +1372,9 @@ const SignupForm = ({
         'Create Account'
       )}
     </button>
+    {fieldErrors.signup && (
+      <p className="mt-1 text-xs text-red-600">{fieldErrors.signup}</p>
+    )}
 
     {/* Switch to login */}
     <div className="mt-6 text-center text-sm">

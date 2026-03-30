@@ -254,8 +254,16 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: hydratedUser || userDataResponse };
     } catch (err) {
       console.error('Signup error:', err);
-      setError(err.message || "Registration failed. Please try again.");
-      return { success: false, error: err.message };
+      const errorMessage = err?.message || "Registration failed. Please try again.";
+      const errorCode = err?.data?.code || null;
+      setError(errorMessage);
+      return {
+        success: false,
+        error: errorMessage,
+        code: errorCode,
+        status: err?.status || null,
+        data: err?.data?.data || null
+      };
     } finally {
       setLoading(false);
     }
@@ -296,6 +304,11 @@ export const AuthProvider = ({ children }) => {
 
       const verifiedUser = data?.data?.user || null;
       const tokens = data?.data?.tokens || null;
+      const existingUserFlag = Boolean(
+        data?.data?.existingUser ?? (verifiedUser && tokens?.accessToken && tokens?.refreshToken)
+      );
+      const nextAction = data?.data?.nextAction || (existingUserFlag ? 'login' : 'signup');
+      const normalizedPhone = data?.data?.phone || phone;
 
       if (verifiedUser && tokens?.accessToken && tokens?.refreshToken) {
         setUser(verifiedUser);
@@ -304,13 +317,25 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("refresh_token", tokens.refreshToken);
 
         const hydratedUser = await refreshUser();
-        return { success: true, user: hydratedUser || verifiedUser, existingUser: true };
+        return {
+          success: true,
+          user: hydratedUser || verifiedUser,
+          existingUser: true,
+          nextAction,
+          phone: normalizedPhone
+        };
       }
 
-      return { success: true, user: null, existingUser: false };
+      return {
+        success: true,
+        user: null,
+        existingUser: false,
+        nextAction,
+        phone: normalizedPhone
+      };
     } catch (err) {
       console.error('Verify OTP error:', err);
-      return { success: false, error: err.message };
+      return { success: false, error: err?.message || 'Verification failed', code: err?.data?.code || null };
     } finally {
       setLoading(false);
     }

@@ -41,24 +41,21 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
 
     const handleValidateCode = async () => {
         const codeToValidate = discountCode || initialDiscountCode;
-        if (!codeToValidate.trim()) return;
+        const normalizedCode = String(codeToValidate || '').trim().toUpperCase();
+        if (!normalizedCode) return;
 
         setValidatingCode(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE}/${import.meta.env.VITE_API_VERSION}/discounts/validate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    code: discountCode,
-                    tier: plan.toLowerCase(),
-                    amount: price
-                })
+            const response = await paymentApi.validateDiscount({
+                code: normalizedCode,
+                tier: String(plan || '').toLowerCase(),
+                amount: Number(price)
             });
-
-            const result = await response.json();
+            const result = response?.data;
 
             if (result.success) {
                 setAppliedDiscount(result.data);
+                setDiscountCode(normalizedCode);
                 toast.success('Discount applied!');
             } else {
                 setAppliedDiscount(null);
@@ -66,7 +63,8 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
             }
         } catch (error) {
             console.error('Validation failed:', error);
-            toast.error('Failed to validate code');
+            setAppliedDiscount(null);
+            toast.error(error?.message || 'Failed to validate code');
         } finally {
             setValidatingCode(false);
         }
@@ -84,20 +82,17 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
         setIsProcessing(true);
         try {
             if (parseFloat(finalPrice) <= 0 && appliedDiscount?.code) {
-                const token = localStorage.getItem('accessToken');
-                const response = await fetch(`${import.meta.env.VITE_API_BASE}/discounts/redeem-free`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                    },
-                    body: JSON.stringify({
-                        code: appliedDiscount.code,
-                        tier: plan.toLowerCase()
-                    })
-                });
+                if (!user) {
+                    toast.error('Please sign in to redeem this coupon.');
+                    setIsProcessing(false);
+                    return;
+                }
 
-                const result = await response.json();
+                const response = await paymentApi.redeemFreeDiscount({
+                    code: String(appliedDiscount.code || '').toUpperCase(),
+                    tier: String(plan || '').toLowerCase()
+                });
+                const result = response?.data;
 
                 if (result.success) {
                     setStep('success');
@@ -129,7 +124,7 @@ const PaymentModal = ({ isOpen, onClose, plan = 'Standard', price = 7.99, initia
             }
         } catch (error) {
             console.error('Payment initiation failed:', error);
-            toast.error('Failed to connect to payment server');
+            toast.error(error?.message || 'Failed to connect to payment server');
         } finally {
             setIsProcessing(false);
         }

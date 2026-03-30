@@ -143,9 +143,21 @@ const MobileAuthModal = ({ isOpen, onClose, onSuccess, initialEmail = '', verify
             if (result.success) {
                 toast.success(result.existingUser ? 'Mobile verified and account signed in.' : 'Mobile verified successfully!');
 
+                if (result.existingUser) {
+                    if (onSuccess) {
+                        onSuccess({
+                            phone: result.phone || fullPhone,
+                            user: result.user || null,
+                            existingUser: true
+                        });
+                    }
+                    onClose();
+                    return;
+                }
+
                 if (verifyOnly) {
                     onSuccess({
-                        phone: fullPhone,
+                        phone: result.phone || fullPhone,
                         user: result.user || null,
                         existingUser: Boolean(result.existingUser)
                     });
